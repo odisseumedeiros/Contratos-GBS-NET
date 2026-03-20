@@ -1108,14 +1108,14 @@ function renderKPIs() {
     { label: 'Críticos (30d)', value: criticos, color: '#f7953d' },
     { label: 'Atenção (60d)', value: atencao, color: '#f7d155' },
     { label: 'Seguros', value: seguros, color: '#3df7a0' },
-    { label: 'Valor Total', value: 'R$ ' + fmtM(valorTotal), color: '#7c5cfc', sub: 'patrimônio total' },
-    { label: 'Valor Mensal', value: 'R$ ' + fmtK(valorMensal), color: '#4f8ef7', sub: 'compromisso mensal' },
+    { label: 'Valor Total', value: 'R$ ' + fmtM(valorTotal), color: '#7c5cfc', sub: 'patrimônio total', small: true },
+    { label: 'Valor Mensal', value: 'R$ ' + fmtK(valorMensal), color: '#4f8ef7', sub: 'compromisso mensal', small: true },
   ];
 
   document.getElementById('kpiGrid').innerHTML = kpis.map(k => `
     <div class="kpi-card" style="--color:${k.color}">
       <div class="kpi-label">${k.label}</div>
-      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-value" style="${k.small ? 'font-size:14px;letter-spacing:-0.3px' : ''}">${k.value}</div>
       ${k.sub ? `<div class="kpi-sub">${k.sub}</div>` : ''}
     </div>
   `).join('');
@@ -1385,11 +1385,11 @@ function exportCSV() {
 
 // ================== HELPERS ==================
 function fmtK(v) {
-  if (!v && v !== 0) return '0';
+  if (!v && v !== 0) return '0,00';
   return Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 function fmtM(v) {
-  if (!v && v !== 0) return '0';
+  if (!v && v !== 0) return '0,00';
   return Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 function fmtDate(d) {
