@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Contratos Odysseu </title>
+<title>Gestão de Contratos Odysseu</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
@@ -498,7 +498,7 @@
   <div class="logo">
     <div class="logo-icon">📋</div>
     <div>
-      <div class="logo-text">Contratos Odysseu </div>
+      <div class="logo-text">Gestão de Contratos Odysseu</div>
       <div class="logo-sub">Sistema de Gestão de Contratos</div>
     </div>
   </div>
@@ -745,24 +745,25 @@ const DEFAULT_CSV_URL = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pu
 
 // Column mapping from spreadsheet headers → internal keys
 const COL_MAP = {
-  'número': 'cod', 'numero': 'cod', 'cod': 'cod',
-  'empresa': 'empresa',
-  'cnpj/cpf': 'cnpj', 'cnpj': 'cnpj',
+  'número': 'cod', 'numero': 'cod', 'cod': 'cod', 'código': 'cod', 'codigo': 'cod',
+  'empresa': 'empresa', 'fornecedor': 'empresa',
+  'cnpj/cpf': 'cnpj', 'cnpj': 'cnpj', 'cpf': 'cnpj',
   'tipo': 'tipo',
-  'objeto': 'objeto',
-  'valor total': 'valorTotal',
-  'valor mensal': 'valorMensal',
-  'índice reajuste': 'indiceReajuste', 'indice reajuste': 'indiceReajuste', 'índice de reajuste': 'indiceReajuste',
-  'data início': 'dataInicio', 'data inicio': 'dataInicio',
-  'vigência contratual': 'vigencia', 'vigencia contratual': 'vigencia',
-  'data término': 'dataTermino', 'data termino': 'dataTermino',
-  'prazo renovação (meses)': 'prazRenovacao', 'prazo renovacao (meses)': 'prazRenovacao',
-  'multa rescisão': 'multaRescisao', 'multa rescisao': 'multaRescisao',
+  'objeto': 'objeto', 'objeto do contrato': 'objeto',
+  'valor total': 'valorTotal', 'valortotal': 'valorTotal',
+  'valor mensal': 'valorMensal', 'valormensal': 'valorMensal',
+  'índice reajuste': 'indiceReajuste', 'indice reajuste': 'indiceReajuste',
+  'índice de reajuste': 'indiceReajuste', 'indice de reajuste': 'indiceReajuste',
+  'data início': 'dataInicio', 'data inicio': 'dataInicio', 'data de início': 'dataInicio', 'data de inicio': 'dataInicio',
+  'vigência contratual': 'vigencia', 'vigencia contratual': 'vigencia', 'vigência': 'vigencia',
+  'data término': 'dataTermino', 'data termino': 'dataTermino', 'data de término': 'dataTermino', 'data de termino': 'dataTermino',
+  'prazo renovação (meses)': 'prazRenovacao', 'prazo renovacao (meses)': 'prazRenovacao', 'prazo de renovação (meses)': 'prazRenovacao',
+  'multa rescisão': 'multaRescisao', 'multa rescisao': 'multaRescisao', 'multa de rescisão': 'multaRescisao',
   'responsável': 'responsavel', 'responsavel': 'responsavel',
   'status': 'status',
-  'centro de custo': 'centroCusto',
+  'centro de custo': 'centroCusto', 'centrodecusto': 'centroCusto',
   'tags': 'tags',
-  'observações': 'observacoes', 'observacoes': 'observacoes'
+  'observações': 'observacoes', 'observacoes': 'observacoes', 'observação': 'observacoes'
 };
 
 let autoRefreshTimer = null;
@@ -811,11 +812,14 @@ function parseCSV(text) {
     if (!obj.cod && !obj.empresa) continue;
 
     // Type conversions
-    obj.valorTotal = parseFloat((obj.valorTotal || '0').replace(',','.')) || 0;
-    obj.valorMensal = parseFloat((obj.valorMensal || '0').replace(',','.')) || 0;
-    obj.multaRescisao = parseFloat((obj.multaRescisao || '0').replace(',','.')) || 0;
+    obj.valorTotal = parseBRL(obj.valorTotal);
+    obj.valorMensal = parseBRL(obj.valorMensal);
+    obj.multaRescisao = parseBRL(obj.multaRescisao);
     obj.prazRenovacao = parseInt(obj.prazRenovacao || '0') || 0;
     obj.valorAnual = obj.valorMensal * 12;
+
+    // Debug: log first 3 rows to console
+    if (rows.length < 3) console.log('[GBS] Row parsed:', {cod: obj.cod, valorTotal: obj.valorTotal, valorMensal: obj.valorMensal, rawVT: cells[keys.indexOf('valorTotal')], rawVM: cells[keys.indexOf('valorMensal')]});
 
     // Normalize dates
     obj.dataInicio = normalizeDate(obj.dataInicio || '');
@@ -829,7 +833,28 @@ function parseCSV(text) {
   return rows;
 }
 
-function normalizeDate(d) {
+function parseBRL(v) {
+  if (!v && v !== 0) return 0;
+  const s = String(v).trim();
+  if (!s) return 0;
+  // Remove currency symbol and spaces
+  let clean = s.replace(/R\$\s*/gi, '').trim();
+  // Format: 1.234,56 (Brazilian) → 1234.56
+  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(clean)) {
+    clean = clean.replace(/\./g, '').replace(',', '.');
+  }
+  // Format: 1,234.56 (English) → already fine
+  else if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(clean)) {
+    clean = clean.replace(/,/g, '');
+  }
+  // Format: 1234,56 (no thousands sep, comma decimal)
+  else if (/^\d+(,\d+)$/.test(clean)) {
+    clean = clean.replace(',', '.');
+  }
+  // Format: 1234.56 or plain integer — already fine
+  const result = parseFloat(clean);
+  return isNaN(result) ? 0 : result;
+}
   if (!d) return '';
   // Already YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
@@ -1361,14 +1386,11 @@ function exportCSV() {
 // ================== HELPERS ==================
 function fmtK(v) {
   if (!v && v !== 0) return '0';
-  if (v >= 1000000) return (v/1000000).toFixed(1).replace('.',',') + 'M';
-  if (v >= 1000) return (v/1000).toFixed(0) + 'K';
-  return v.toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+  return Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 function fmtM(v) {
-  if (v >= 1000000) return (v/1000000).toFixed(2).replace('.',',') + 'M';
-  if (v >= 1000) return (v/1000).toFixed(1).replace('.',',') + 'K';
-  return v.toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+  if (!v && v !== 0) return '0';
+  return Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 function fmtDate(d) {
   if (!d) return '—';
